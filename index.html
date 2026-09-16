@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FrangoBot — Painel de Logs</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#14100c;
+    --bg-alt:#0f0c09;
+    --surface:#1e1712;
+    --surface-2:#271e17;
+    --line:#392c22;
+    --text:#f5efe6;
+    --text-muted:#a9998a;
+    --accent:#e3a23b;
+    --accent-dim:#8a6a2e;
+    --danger:#d9614f;
+    --good:#6fa968;
+    --info:#5f9ad9;
+    --radius:10px;
+    font-size:16px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Manrope',sans-serif;
+    min-height:100vh;
+  }
+  ::selection{background:var(--accent);color:#1a1208;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+
+  /* ───── LOGIN ───── */
+  #tela-login{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .cartao-login{
+    width:100%;
+    max-width:380px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:32px 28px;
+  }
+  .cartao-login .marca{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:24px;
+  }
+  .marca .ponto{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 8px var(--accent);
+  }
+  .marca span{
+    font-family:'JetBrains Mono',monospace;
+    letter-spacing:.02em;
+    color:var(--text-muted);
+    font-size:.85rem;
+  }
+  .cartao-login h1{
+    font-size:1.4rem;
+    margin:0 0 6px;
+    font-weight:800;
+  }
+  .cartao-login p.sub{
+    color:var(--text-muted);
+    font-size:.88rem;
+    margin:0 0 24px;
+  }
+  label{
+    display:block;
+    font-size:.78rem;
+    color:var(--text-muted);
+    margin:0 0 6px;
+    font-weight:500;
+  }
+  input[type=email], input[type=password], input[type=text], input[type=date]{
+    width:100%;
+    background:var(--bg-alt);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:11px 13px;
+    border-radius:8px;
+    font-size:.92rem;
+    font-family:inherit;
+    margin-bottom:16px;
+    outline:none;
+    transition:border-color .15s;
+  }
+  input:focus{border-color:var(--accent);}
+  button{
+    font-family:'Manrope',sans-serif;
+    font-weight:700;
+    font-size:.9rem;
+    border:none;
+    border-radius:8px;
+    padding:11px 16px;
+    cursor:pointer;
+    transition:filter .15s, transform .1s;
+  }
+  button:active{transform:scale(.98);}
+  .botao-principal{
+    width:100%;
+    background:var(--accent);
+    color:#1a1208;
+  }
+  .botao-principal:hover{filter:brightness(1.08);}
+  .erro-login{
+    color:var(--danger);
+    font-size:.82rem;
+    margin-top:12px;
+    display:none;
+  }
+
+  /* ───── PAINEL ───── */
+  #tela-painel{display:none;}
+  header.topo{
+    border-bottom:1px solid var(--line);
+    background:var(--bg-alt);
+    padding:16px 28px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+    position:sticky;
+    top:0;
+    z-index:10;
+  }
+  header.topo .marca{display:flex;align-items:center;gap:10px;}
+  header.topo h1{font-size:1.05rem;margin:0;font-weight:800;}
+  .indicador-live{
+    display:flex;align-items:center;gap:7px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:.72rem;
+    color:var(--text-muted);
+  }
+  .indicador-live .bola{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--good);
+    animation:pulsar 2s infinite;
+  }
+  @keyframes pulsar{
+    0%,100%{opacity:1;}
+    50%{opacity:.35;}
+  }
+  .botao-sair{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--text-muted);
+  }
+  .botao-sair:hover{border-color:var(--danger);color:var(--danger);}
+
+  main{
+    max-width:1080px;
+    margin:0 auto;
+    padding:24px 28px 80px;
+  }
+
+  .abas{
+    display:flex;
+    gap:6px;
+    overflow-x:auto;
+    padding-bottom:4px;
+    margin-bottom:18px;
+    border-bottom:1px solid var(--line);
+  }
+  .aba{
+    background:transparent;
+    color:var(--text-muted);
+    padding:9px 14px;
+    font-size:.85rem;
+    border-radius:8px 8px 0 0;
+    white-space:nowrap;
+  }
+  .aba.ativa{
+    color:var(--accent);
+    background:var(--surface);
+    box-shadow:inset 0 -2px 0 var(--accent);
+  }
+
+  .filtros{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:20px;
+    align-items:flex-end;
+  }
+  .filtros .campo{flex:1;min-width:160px;margin-bottom:0;}
+  .filtros label{margin-bottom:6px;}
+  .filtros input{margin-bottom:0;}
+  #busca{flex:2;min-width:220px;}
+  .botao-secundario{
+    background:var(--surface-2);
+    color:var(--text);
+    border:1px solid var(--line);
+    white-space:nowrap;
+  }
+  .botao-secundario:hover{border-color:var(--accent);}
+
+  #lista-logs{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .linha-log{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-left:3px solid var(--categoria-cor, var(--accent-dim));
+    border-radius:8px;
+    padding:12px 14px;
+    display:flex;
+    gap:14px;
+    align-items:flex-start;
+  }
+  .linha-log .horario{
+    font-family:'JetBrains Mono',monospace;
+    font-size:.76rem;
+    color:var(--text-muted);
+    white-space:nowrap;
+    padding-top:2px;
+    min-width:118px;
+  }
+  .linha-log .conteudo{flex:1;min-width:0;}
+  .linha-log .descricao{font-size:.9rem;line-height:1.45;word-break:break-word;}
+  .linha-log .tags{
+    display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;
+  }
+  .etiqueta{
+    font-family:'JetBrains Mono',monospace;
+    font-size:.68rem;
+    padding:2px 7px;
+    border-radius:5px;
+    background:var(--surface-2);
+    color:var(--text-muted);
+  }
+  .linha-log .detalhes{
+    margin-top:8px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:.76rem;
+    color:var(--text-muted);
+    background:var(--bg-alt);
+    border-radius:6px;
+    padding:8px 10px;
+    white-space:pre-wrap;
+    word-break:break-word;
+    display:none;
+  }
+  .linha-log .ver-mais{
+    background:none;border:none;color:var(--info);
+    font-size:.74rem;padding:0;margin-top:6px;
+    text-decoration:underline;cursor:pointer;
+  }
+
+  .estado-vazio, .estado-carregando{
+    text-align:center;
+    color:var(--text-muted);
+    padding:50px 20px;
+    font-size:.9rem;
+  }
+
+  /* ───── RELATÓRIO DE CALLS ───── */
+  .cartao-call{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-left:3px solid var(--accent);
+    border-radius:8px;
+    padding:14px 16px;
+    margin-bottom:8px;
+    cursor:pointer;
+  }
+  .cartao-call .cabecalho-call{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .cartao-call .canal-nome{font-weight:700;font-size:.95rem;}
+  .cartao-call .data-call{
+    font-family:'JetBrains Mono',monospace;
+    font-size:.74rem;
+    color:var(--text-muted);
+  }
+  .resumo-call{
+    display:flex;
+    gap:18px;
+    margin-top:8px;
+    flex-wrap:wrap;
+    font-size:.82rem;
+    color:var(--text-muted);
+  }
+  .resumo-call b{color:var(--text);}
+  .resumo-call .recorde{color:var(--accent);}
+  .lista-participantes{
+    margin-top:12px;
+    padding-top:12px;
+    border-top:1px solid var(--line);
+    display:none;
+  }
+  .participante-linha{
+    display:flex;
+    justify-content:space-between;
+    padding:5px 0;
+    font-size:.85rem;
+  }
+  .participante-linha .barra-fundo{
+    flex:1;
+    height:5px;
+    background:var(--surface-2);
+    border-radius:3px;
+    margin:0 12px;
+    align-self:center;
+    overflow:hidden;
+  }
+  .participante-linha .barra{
+    height:100%;
+    background:var(--accent);
+    border-radius:3px;
+  }
+  .participante-linha .tempo{
+    font-family:'JetBrains Mono',monospace;
+    font-size:.76rem;
+    color:var(--text-muted);
+    white-space:nowrap;
+  }
+
+  #carregar-mais{
+    display:block;
+    margin:22px auto 0;
+    background:var(--surface-2);
+    border:1px solid var(--line);
+    color:var(--text);
+  }
+  #carregar-mais:hover{border-color:var(--accent);}
+
+  @media(max-width:600px){
+    main{padding:18px 14px 60px;}
+    header.topo{padding:14px 16px;}
+    .linha-log{flex-direction:column;gap:4px;}
+    .linha-log .horario{min-width:auto;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ TELA DE LOGIN ═══════════════ -->
+<div id="tela-login">
+  <div class="cartao-login">
+    <div class="marca"><span class="ponto"></span><span>FRANGOBOT / LOGS</span></div>
+    <h1>Entrar no painel</h1>
+    <p class="sub">Acesso restrito. Faça login com a conta cadastrada no Supabase Auth.</p>
+    <form id="form-login">
+      <label for="campo-email">E-mail</label>
+      <input type="email" id="campo-email" required autocomplete="username" />
+      <label for="campo-senha">Senha</label>
+      <input type="password" id="campo-senha" required autocomplete="current-password" />
+      <button type="submit" class="botao-principal">Entrar</button>
+      <p class="erro-login" id="erro-login"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════ PAINEL ═══════════════ -->
+<div id="tela-painel">
+  <header class="topo">
+    <div class="marca">
+      <span class="ponto"></span>
+      <h1>FrangoBot — Painel de Logs</h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <div class="indicador-live"><span class="bola"></span> ao vivo</div>
+      <button class="botao-sair" id="botao-sair">Sair</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="abas" id="abas">
+      <button class="aba ativa" data-categoria="">Tudo</button>
+      <button class="aba" data-categoria="membros">Membros</button>
+      <button class="aba" data-categoria="mensagens">Mensagens</button>
+      <button class="aba" data-categoria="voz">Voz</button>
+      <button class="aba" data-categoria="comandos">Comandos</button>
+      <button class="aba" data-categoria="moderacao_auto">Moderação Automática</button>
+      <button class="aba" data-categoria="__relatorio__">📊 Relatório de Calls</button>
+    </div>
+
+    <div class="filtros">
+      <div class="campo">
+        <label for="busca">Buscar (nome, texto do log...)</label>
+        <input type="text" id="busca" placeholder="ex: joão, mensagem apagada, #geral..." />
+      </div>
+      <div class="campo">
+        <label for="data-inicio">De</label>
+        <input type="date" id="data-inicio" />
+      </div>
+      <div class="campo">
+        <label for="data-fim">Até</label>
+        <input type="date" id="data-fim" />
+      </div>
+      <button class="botao-secundario" id="botao-limpar-filtros">Limpar filtros</button>
+    </div>
+
+    <div id="lista-logs"></div>
+    <div id="lista-relatorio" style="display:none;"></div>
+    <button id="carregar-mais" style="display:none;">Carregar mais antigos</button>
+  </main>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// CONFIGURE AQUI: URL e ANON KEY do seu projeto Supabase.
+// A anon key é pública por design (protegida pela política de RLS
+// que exige login) — pode ficar exposta no HTML sem problema.
+// ══════════════════════════════════════════════════════════════
+const SUPABASE_URL = "https://uygrychfufqlrvsjejfx.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_UFqAV1ttoqUqclo3Y243yQ_ATAipOPv";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,     // mantém o login salvo no navegador (localStorage)
+    autoRefreshToken: true,   // renova a sessão sozinho, sem precisar logar de novo toda hora
+  },
+});
+
+const PAGINA_TAMANHO = 40;
+let categoriaAtual = "";
+let paginaAtual = 0;
+let fimDaLista = false;
+
+const CORES_CATEGORIA = {
+  membros: "#6fa968",
+  mensagens: "#5f9ad9",
+  voz: "#e3a23b",
+  comandos: "#a9998a",
+  moderacao_auto: "#d9614f",
+};
+
+const NOMES_CATEGORIA = {
+  membros: "Membros",
+  mensagens: "Mensagens",
+  voz: "Voz",
+  comandos: "Comandos",
+  moderacao_auto: "Moderação Automática",
+};
+
+// ───── LOGIN / SESSÃO ─────
+const telaLogin = document.getElementById("tela-login");
+const telaPainel = document.getElementById("tela-painel");
+
+async function checarSessao() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    mostrarPainel();
+  } else {
+    telaLogin.style.display = "flex";
+    telaPainel.style.display = "none";
+  }
+}
+
+document.getElementById("form-login").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("campo-email").value.trim();
+  const senha = document.getElementById("campo-senha").value;
+  const erroEl = document.getElementById("erro-login");
+  erroEl.style.display = "none";
+
+  const { error } = await sb.auth.signInWithPassword({ email, password: senha });
+  if (error) {
+    erroEl.textContent = "E-mail ou senha inválidos.";
+    erroEl.style.display = "block";
+    return;
+  }
+  mostrarPainel();
+});
+
+document.getElementById("botao-sair").addEventListener("click", async () => {
+  await sb.auth.signOut();
+  location.reload();
+});
+
+function mostrarPainel() {
+  telaLogin.style.display = "none";
+  telaPainel.style.display = "block";
+  resetarEBuscar();
+  iniciarRealtime();
+}
+
+// ───── ABAS ─────
+let modoRelatorio = false;
+
+document.getElementById("abas").addEventListener("click", (e) => {
+  const btn = e.target.closest(".aba");
+  if (!btn) return;
+  document.querySelectorAll(".aba").forEach(a => a.classList.remove("ativa"));
+  btn.classList.add("ativa");
+  modoRelatorio = btn.dataset.categoria === "__relatorio__";
+  categoriaAtual = modoRelatorio ? "" : btn.dataset.categoria;
+
+  document.getElementById("lista-logs").style.display = modoRelatorio ? "none" : "flex";
+  document.getElementById("lista-relatorio").style.display = modoRelatorio ? "block" : "none";
+  document.getElementById("carregar-mais").style.display = "none";
+
+  resetarEBuscar();
+});
+
+// ───── FILTROS ─────
+let debounceBusca;
+document.getElementById("busca").addEventListener("input", () => {
+  clearTimeout(debounceBusca);
+  debounceBusca = setTimeout(resetarEBuscar, 350);
+});
+document.getElementById("data-inicio").addEventListener("change", resetarEBuscar);
+document.getElementById("data-fim").addEventListener("change", resetarEBuscar);
+document.getElementById("botao-limpar-filtros").addEventListener("click", () => {
+  document.getElementById("busca").value = "";
+  document.getElementById("data-inicio").value = "";
+  document.getElementById("data-fim").value = "";
+  resetarEBuscar();
+});
+document.getElementById("carregar-mais").addEventListener("click", () => buscarLogs(false));
+
+function resetarEBuscar() {
+  paginaAtual = 0;
+  fimDaLista = false;
+  if (modoRelatorio) {
+    buscarRelatorio();
+  } else {
+    document.getElementById("lista-logs").innerHTML = "";
+    buscarLogs(true);
+  }
+}
+
+// ───── RELATÓRIO DE CALLS (planilha de duração + participantes) ─────
+function formatarDuracao(seg) {
+  seg = Math.round(seg);
+  const h = Math.floor(seg / 3600);
+  const m = Math.floor((seg % 3600) / 60);
+  const s = seg % 60;
+  return h > 0 ? `${h}h ${m}m ${s}s` : `${m}m ${s}s`;
+}
+
+async function buscarRelatorio() {
+  const container = document.getElementById("lista-relatorio");
+  container.innerHTML = '<div class="estado-carregando">Carregando...</div>';
+
+  const busca = document.getElementById("busca").value.trim();
+  const dataInicio = document.getElementById("data-inicio").value;
+  const dataFim = document.getElementById("data-fim").value;
+
+  let query = sb.from("logs").select("*")
+    .eq("tipo", "chamada_encerrada")
+    .order("criado_em", { ascending: false })
+    .limit(100);
+
+  if (busca) query = query.ilike("canal_nome", `%${busca}%`);
+  if (dataInicio) query = query.gte("criado_em", `${dataInicio}T00:00:00`);
+  if (dataFim) query = query.lte("criado_em", `${dataFim}T23:59:59`);
+
+  const { data, error } = await query;
+
+  if (error) {
+    container.innerHTML = `<div class="estado-vazio">Erro ao buscar relatório: ${error.message}</div>`;
+    return;
+  }
+  if (!data || data.length === 0) {
+    container.innerHTML = '<div class="estado-vazio">Nenhuma call encerrada encontrada com esse filtro.</div>';
+    return;
+  }
+
+  container.innerHTML = "";
+  data.forEach(log => container.appendChild(criarCartaoCall(log)));
+}
+
+function criarCartaoCall(log) {
+  const d = log.detalhes || {};
+  const participantes = d.participantes || [];
+  const recorde = d.recorde;
+  const maiorTempo = participantes.length ? participantes[0].tempo_segundos : 1;
+
+  const data = new Date(log.criado_em).toLocaleString("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit"
+  });
+
+  const cartao = document.createElement("div");
+  cartao.className = "cartao-call";
+  cartao.innerHTML = `
+    <div class="cabecalho-call">
+      <span class="canal-nome">#${escaparHtml(log.canal_nome || "?")}</span>
+      <span class="data-call mono">${data}</span>
+    </div>
+    <div class="resumo-call">
+      <span>Duração: <b>${escaparHtml(d.duracao_formatada || formatarDuracao(d.duracao_segundos || 0))}</b></span>
+      <span>Participantes: <b>${participantes.length}</b></span>
+      ${recorde ? `<span class="recorde">👑 ${escaparHtml(recorde.nome)} ficou mais tempo (${formatarDuracao(recorde.tempo_segundos)})</span>` : ""}
+    </div>
+    <div class="lista-participantes">
+      ${participantes.map(p => `
+        <div class="participante-linha">
+          <span>${escaparHtml(p.nome)}</span>
+          <span class="barra-fundo"><span class="barra" style="width:${Math.round((p.tempo_segundos / maiorTempo) * 100)}%"></span></span>
+          <span class="tempo mono">${formatarDuracao(p.tempo_segundos)}</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
+
+  cartao.addEventListener("click", () => {
+    const painel = cartao.querySelector(".lista-participantes");
+    painel.style.display = painel.style.display === "block" ? "none" : "block";
+  });
+
+  return cartao;
+}
+
+async function buscarLogs(primeiraPagina) {
+  const lista = document.getElementById("lista-logs");
+  const botaoMais = document.getElementById("carregar-mais");
+
+  if (primeiraPagina) {
+    lista.innerHTML = '<div class="estado-carregando">Carregando...</div>';
+  }
+
+  const busca = document.getElementById("busca").value.trim();
+  const dataInicio = document.getElementById("data-inicio").value;
+  const dataFim = document.getElementById("data-fim").value;
+
+  let query = sb.from("logs").select("*").order("criado_em", { ascending: false });
+
+  if (categoriaAtual) query = query.eq("categoria", categoriaAtual);
+  if (busca) query = query.or(`descricao.ilike.%${busca}%,usuario_nome.ilike.%${busca}%,canal_nome.ilike.%${busca}%`);
+  if (dataInicio) query = query.gte("criado_em", `${dataInicio}T00:00:00`);
+  if (dataFim) query = query.lte("criado_em", `${dataFim}T23:59:59`);
+
+  const de = paginaAtual * PAGINA_TAMANHO;
+  const ate = de + PAGINA_TAMANHO - 1;
+  query = query.range(de, ate);
+
+  const { data, error } = await query;
+
+  if (primeiraPagina) lista.innerHTML = "";
+
+  if (error) {
+    lista.innerHTML = `<div class="estado-vazio">Erro ao buscar logs: ${error.message}</div>`;
+    return;
+  }
+
+  if (primeiraPagina && (!data || data.length === 0)) {
+    lista.innerHTML = '<div class="estado-vazio">Nenhum log encontrado com esse filtro.</div>';
+    botaoMais.style.display = "none";
+    return;
+  }
+
+  data.forEach(log => lista.appendChild(criarLinhaLog(log)));
+
+  paginaAtual++;
+  fimDaLista = data.length < PAGINA_TAMANHO;
+  botaoMais.style.display = fimDaLista ? "none" : "block";
+}
+
+function criarLinhaLog(log) {
+  const div = document.createElement("div");
+  div.className = "linha-log";
+  div.style.setProperty("--categoria-cor", CORES_CATEGORIA[log.categoria] || "#8a6a2e");
+
+  const horario = new Date(log.criado_em).toLocaleString("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit"
+  });
+
+  const temDetalhes = log.detalhes && Object.keys(log.detalhes).length > 0;
+
+  div.innerHTML = `
+    <div class="horario mono">${horario}</div>
+    <div class="conteudo">
+      <div class="descricao">${escaparHtml(log.descricao)}</div>
+      <div class="tags">
+        <span class="etiqueta">${NOMES_CATEGORIA[log.categoria] || log.categoria}</span>
+        <span class="etiqueta">${escaparHtml(log.tipo)}</span>
+        ${log.canal_nome ? `<span class="etiqueta">#${escaparHtml(log.canal_nome)}</span>` : ""}
+      </div>
+      ${temDetalhes ? `<button class="ver-mais">ver detalhes</button><div class="detalhes mono">${escaparHtml(JSON.stringify(log.detalhes, null, 2))}</div>` : ""}
+    </div>
+  `;
+
+  if (temDetalhes) {
+    const botao = div.querySelector(".ver-mais");
+    const painelDetalhes = div.querySelector(".detalhes");
+    botao.addEventListener("click", () => {
+      const aberto = painelDetalhes.style.display === "block";
+      painelDetalhes.style.display = aberto ? "none" : "block";
+      botao.textContent = aberto ? "ver detalhes" : "esconder detalhes";
+    });
+  }
+
+  return div;
+}
+
+function escaparHtml(txt) {
+  const div = document.createElement("div");
+  div.textContent = String(txt);
+  return div.innerHTML;
+}
+
+// ───── LOGS EM TEMPO REAL (novo evento aparece na hora, sem recarregar) ─────
+function iniciarRealtime() {
+  sb.channel("logs-tempo-real")
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "logs" }, (payload) => {
+      if (modoRelatorio) {
+        if (payload.new.tipo === "chamada_encerrada") {
+          const semFiltro = !document.getElementById("busca").value &&
+                             !document.getElementById("data-inicio").value &&
+                             !document.getElementById("data-fim").value;
+          if (semFiltro) {
+            const container = document.getElementById("lista-relatorio");
+            if (container.querySelector(".estado-vazio")) container.innerHTML = "";
+            container.insertBefore(criarCartaoCall(payload.new), container.firstChild);
+          }
+        }
+        return;
+      }
+      // só injeta na hora se estiver na aba "Tudo" (ou na aba certa) e sem filtro de busca/data ativo,
+      // pra não bagunçar uma busca que a pessoa esteja fazendo
+      const semFiltro = !document.getElementById("busca").value &&
+                         !document.getElementById("data-inicio").value &&
+                         !document.getElementById("data-fim").value;
+      const bateComAba = !categoriaAtual || categoriaAtual === payload.new.categoria;
+      if (semFiltro && bateComAba) {
+        const lista = document.getElementById("lista-logs");
+        if (lista.querySelector(".estado-vazio")) lista.innerHTML = "";
+        lista.insertBefore(criarLinhaLog(payload.new), lista.firstChild);
+      }
+    })
+    .subscribe();
+}
+
+checarSessao();
+</script>
+</body>
+</html>
