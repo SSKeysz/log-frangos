@@ -49,6 +49,7 @@
     background:radial-gradient(ellipse at center, #0a0a0a 0%, #000 75%);
   }
   #tela-login::after{
+    /* leve textura de scanline, dá um ar de terminal/tela antiga */
     content:"";
     position:absolute;
     inset:0;
@@ -157,7 +158,7 @@
     margin:0 0 6px;
     font-weight:500;
   }
-  input[type=email], input[type=password], input[type=text], input[type=date], select{
+  input[type=email], input[type=password], input[type=text], input[type=date]{
     width:100%;
     background:var(--bg-alt);
     border:1px solid var(--line);
@@ -170,15 +171,7 @@
     outline:none;
     transition:border-color .15s;
   }
-  select{
-    appearance:none;
-    -webkit-appearance:none;
-    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%23a9998a'/></svg>");
-    background-repeat:no-repeat;
-    background-position:right 13px center;
-    cursor:pointer;
-  }
-  input:focus, select:focus{border-color:var(--accent);}
+  input:focus{border-color:var(--accent);}
   button{
     font-family:'Manrope',sans-serif;
     font-weight:700;
@@ -287,7 +280,7 @@
   }
   .filtros .campo{flex:1;min-width:160px;margin-bottom:0;}
   .filtros label{margin-bottom:6px;}
-  .filtros input, .filtros select{margin-bottom:0;}
+  .filtros input{margin-bottom:0;}
   #busca{flex:2;min-width:220px;}
   .botao-secundario{
     background:var(--surface-2);
@@ -450,7 +443,7 @@
     .resumo-call{gap:10px 16px;font-size:.78rem;}
     .cabecalho-call{gap:6px;}
     button{min-height:42px;}
-    input[type=email], input[type=password], input[type=text], input[type=date], select{
+    input[type=email], input[type=password], input[type=text], input[type=date]{
       font-size:1rem; /* evita zoom automático no iOS ao focar o campo */
     }
   }
@@ -497,6 +490,8 @@
       <button class="aba" data-categoria="comandos">Comandos</button>
       <button class="aba" data-categoria="moderacao_auto">Moderação Automática</button>
       <button class="aba" data-categoria="__relatorio__">📊 Relatório de Calls</button>
+      <button class="aba" data-categoria="__ranking__">🏆 Ranking</button>
+      <button class="aba" data-categoria="__comandos__">📈 Comandos Mais Usados</button>
     </div>
 
     <div class="filtros">
@@ -505,21 +500,21 @@
         <input type="text" id="busca" placeholder="ex: joão, mensagem apagada, #geral..." />
       </div>
       <div class="campo">
-        <label for="filtro-periodo">Período</label>
-        <select id="filtro-periodo">
-          <option value="todos">Todas as datas</option>
+        <label for="periodo">Período</label>
+        <select id="periodo">
+          <option value="all">Todas as datas</option>
           <option value="hoje">Hoje</option>
           <option value="ontem">Ontem</option>
-          <option value="semana">Última semana</option>
-          <option value="mes">Último mês</option>
-          <option value="personalizado">Intervalo personalizado</option>
+          <option value="semana">Semana passada (7 dias)</option>
+          <option value="mes">Mês passado (30 dias)</option>
+          <option value="custom">Intervalo personalizado</option>
         </select>
       </div>
-      <div class="campo" id="grupo-data-inicio" style="display:none;">
+      <div class="campo" id="campo-data-inicio" style="display:none;">
         <label for="data-inicio">De</label>
         <input type="date" id="data-inicio" />
       </div>
-      <div class="campo" id="grupo-data-fim" style="display:none;">
+      <div class="campo" id="campo-data-fim" style="display:none;">
         <label for="data-fim">Até</label>
         <input type="date" id="data-fim" />
       </div>
@@ -528,6 +523,8 @@
 
     <div id="lista-logs"></div>
     <div id="lista-relatorio" style="display:none;"></div>
+    <div id="lista-ranking" style="display:none;"></div>
+    <div id="lista-comandos" style="display:none;"></div>
     <button id="carregar-mais" style="display:none;">Carregar mais antigos</button>
   </main>
 </div>
@@ -560,6 +557,7 @@ const CORES_CATEGORIA = {
   comandos: "#a9998a",
   moderacao_auto: "#d9614f",
   servidor: "#9a7fd0",
+  sistema: "#e35b5b",
 };
 
 const NOMES_CATEGORIA = {
@@ -569,6 +567,7 @@ const NOMES_CATEGORIA = {
   comandos: "Comandos",
   moderacao_auto: "Moderação Automática",
   servidor: "Servidor",
+  sistema: "Sistema (erro)",
 };
 
 // ───── DISFARCE: "?" espalhados pela tela de login ─────
@@ -645,104 +644,106 @@ function mostrarPainel() {
 }
 
 // ───── ABAS ─────
-let modoRelatorio = false;
+let modoAtual = "logs"; // "logs" | "relatorio" | "ranking" | "comandos"
+
+const MODOS_POR_CATEGORIA = {
+  "__relatorio__": "relatorio",
+  "__ranking__": "ranking",
+  "__comandos__": "comandos",
+};
 
 document.getElementById("abas").addEventListener("click", (e) => {
   const btn = e.target.closest(".aba");
   if (!btn) return;
   document.querySelectorAll(".aba").forEach(a => a.classList.remove("ativa"));
   btn.classList.add("ativa");
-  modoRelatorio = btn.dataset.categoria === "__relatorio__";
-  categoriaAtual = modoRelatorio ? "" : btn.dataset.categoria;
 
-  document.getElementById("lista-logs").style.display = modoRelatorio ? "none" : "flex";
-  document.getElementById("lista-relatorio").style.display = modoRelatorio ? "block" : "none";
+  const cat = btn.dataset.categoria;
+  modoAtual = MODOS_POR_CATEGORIA[cat] || "logs";
+  categoriaAtual = modoAtual === "logs" ? cat : "";
+
+  document.getElementById("lista-logs").style.display = modoAtual === "logs" ? "flex" : "none";
+  document.getElementById("lista-relatorio").style.display = modoAtual === "relatorio" ? "block" : "none";
+  document.getElementById("lista-ranking").style.display = modoAtual === "ranking" ? "block" : "none";
+  document.getElementById("lista-comandos").style.display = modoAtual === "comandos" ? "block" : "none";
   document.getElementById("carregar-mais").style.display = "none";
 
   resetarEBuscar();
 });
 
-// ───── FILTRO DE PERÍODO (presets: hoje, ontem, semana, mês, personalizado, todos) ─────
-function formatarDataISO(data) {
-  // yyyy-mm-dd no fuso local (evita o problema de toISOString "voltar" um dia)
-  const ano = data.getFullYear();
-  const mes = String(data.getMonth() + 1).padStart(2, "0");
-  const dia = String(data.getDate()).padStart(2, "0");
-  return `${ano}-${mes}-${dia}`;
-}
-
-document.getElementById("filtro-periodo").addEventListener("change", aplicarPeriodoPreset);
-
-function aplicarPeriodoPreset() {
-  const valor = document.getElementById("filtro-periodo").value;
-  const grupoInicio = document.getElementById("grupo-data-inicio");
-  const grupoFim = document.getElementById("grupo-data-fim");
-  const campoInicio = document.getElementById("data-inicio");
-  const campoFim = document.getElementById("data-fim");
-
-  if (valor === "personalizado") {
-    // mostra os campos De/Até pra pessoa escolher na mão
-    grupoInicio.style.display = "block";
-    grupoFim.style.display = "block";
-    return;
-  }
-
-  // qualquer outro preset: esconde os campos manuais e calcula as datas sozinho
-  grupoInicio.style.display = "none";
-  grupoFim.style.display = "none";
-
-  const hoje = new Date();
-  let inicio = null;
-  let fim = null;
-
-  if (valor === "hoje") {
-    inicio = new Date(hoje);
-    fim = new Date(hoje);
-  } else if (valor === "ontem") {
-    inicio = new Date(hoje);
-    inicio.setDate(inicio.getDate() - 1);
-    fim = new Date(inicio);
-  } else if (valor === "semana") {
-    inicio = new Date(hoje);
-    inicio.setDate(inicio.getDate() - 6); // últimos 7 dias, incluindo hoje
-    fim = new Date(hoje);
-  } else if (valor === "mes") {
-    inicio = new Date(hoje);
-    inicio.setDate(inicio.getDate() - 29); // últimos 30 dias, incluindo hoje
-    fim = new Date(hoje);
-  }
-  // "todos" cai aqui com inicio/fim ainda null, que é o que a gente quer
-
-  campoInicio.value = inicio ? formatarDataISO(inicio) : "";
-  campoFim.value = fim ? formatarDataISO(fim) : "";
-
-  resetarEBuscar();
-}
-
-// ───── FILTROS (busca por texto) ─────
+// ───── FILTROS ─────
 let debounceBusca;
 document.getElementById("busca").addEventListener("input", () => {
   clearTimeout(debounceBusca);
   debounceBusca = setTimeout(resetarEBuscar, 350);
 });
+document.getElementById("periodo").addEventListener("change", () => {
+  const custom = document.getElementById("periodo").value === "custom";
+  document.getElementById("campo-data-inicio").style.display = custom ? "" : "none";
+  document.getElementById("campo-data-fim").style.display = custom ? "" : "none";
+  if (!custom) {
+    document.getElementById("data-inicio").value = "";
+    document.getElementById("data-fim").value = "";
+  }
+  resetarEBuscar();
+});
 document.getElementById("data-inicio").addEventListener("change", resetarEBuscar);
 document.getElementById("data-fim").addEventListener("change", resetarEBuscar);
 document.getElementById("botao-limpar-filtros").addEventListener("click", () => {
   document.getElementById("busca").value = "";
+  document.getElementById("periodo").value = "all";
   document.getElementById("data-inicio").value = "";
   document.getElementById("data-fim").value = "";
-  document.getElementById("filtro-periodo").value = "todos";
-  document.getElementById("grupo-data-inicio").style.display = "none";
-  document.getElementById("grupo-data-fim").style.display = "none";
+  document.getElementById("campo-data-inicio").style.display = "none";
+  document.getElementById("campo-data-fim").style.display = "none";
   resetarEBuscar();
 });
 document.getElementById("carregar-mais").addEventListener("click", () => buscarLogs(false));
 
+// Calcula o intervalo de data real a partir do dropdown "Período" (ou das datas
+// manuais, se "Intervalo personalizado" estiver selecionado).
+function obterIntervaloData() {
+  const periodo = document.getElementById("periodo").value;
+  const agora = new Date();
+  const inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 0, 0, 0);
+  const fimHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 23, 59, 59);
+
+  if (periodo === "hoje") {
+    return { inicio: inicioHoje.toISOString(), fim: fimHoje.toISOString() };
+  }
+  if (periodo === "ontem") {
+    const ini = new Date(inicioHoje); ini.setDate(ini.getDate() - 1);
+    const fim = new Date(fimHoje); fim.setDate(fim.getDate() - 1);
+    return { inicio: ini.toISOString(), fim: fim.toISOString() };
+  }
+  if (periodo === "semana") {
+    const ini = new Date(inicioHoje); ini.setDate(ini.getDate() - 6);
+    return { inicio: ini.toISOString(), fim: fimHoje.toISOString() };
+  }
+  if (periodo === "mes") {
+    const ini = new Date(inicioHoje); ini.setDate(ini.getDate() - 29);
+    return { inicio: ini.toISOString(), fim: fimHoje.toISOString() };
+  }
+  if (periodo === "custom") {
+    const di = document.getElementById("data-inicio").value;
+    const df = document.getElementById("data-fim").value;
+    return {
+      inicio: di ? `${di}T00:00:00` : null,
+      fim: df ? `${df}T23:59:59` : null,
+    };
+  }
+  return { inicio: null, fim: null }; // "all" — todas as datas
+}
+
 function resetarEBuscar() {
   paginaAtual = 0;
   fimDaLista = false;
-  if (modoRelatorio) {
+  if (modoAtual === "relatorio") {
     buscarRelatorio();
+  } else if (modoAtual === "ranking") {
+    buscarRanking();
+  } else if (modoAtual === "comandos") {
+    buscarComandos();
   } else {
     document.getElementById("lista-logs").innerHTML = "";
     buscarLogs(true);
@@ -763,8 +764,7 @@ async function buscarRelatorio() {
   container.innerHTML = '<div class="estado-carregando">Carregando...</div>';
 
   const busca = document.getElementById("busca").value.trim();
-  const dataInicio = document.getElementById("data-inicio").value;
-  const dataFim = document.getElementById("data-fim").value;
+  const { inicio, fim } = obterIntervaloData();
 
   let query = sb.from("logs").select("*")
     .eq("tipo", "chamada_encerrada")
@@ -772,8 +772,8 @@ async function buscarRelatorio() {
     .limit(100);
 
   if (busca) query = query.ilike("canal_nome", `%${busca}%`);
-  if (dataInicio) query = query.gte("criado_em", `${dataInicio}T00:00:00`);
-  if (dataFim) query = query.lte("criado_em", `${dataFim}T23:59:59`);
+  if (inicio) query = query.gte("criado_em", inicio);
+  if (fim) query = query.lte("criado_em", fim);
 
   const { data, error } = await query;
 
@@ -831,6 +831,89 @@ function criarCartaoCall(log) {
   return cartao;
 }
 
+// ───── RANKING (tempo total em call) ─────
+async function buscarRanking() {
+  const container = document.getElementById("lista-ranking");
+  container.innerHTML = '<div class="estado-carregando">Carregando...</div>';
+
+  const busca = document.getElementById("busca").value.trim();
+  let query = sb.from("ranking").select("*").order("tempo_total_segundos", { ascending: false }).limit(50);
+  if (busca) query = query.ilike("usuario_nome", `%${busca}%`);
+
+  const { data, error } = await query;
+
+  if (error) {
+    container.innerHTML = `<div class="estado-vazio">Erro ao buscar o ranking: ${error.message}</div>`;
+    return;
+  }
+  if (!data || data.length === 0) {
+    container.innerHTML = '<div class="estado-vazio">Ninguém no ranking ainda.</div>';
+    return;
+  }
+
+  const maiorTempo = data[0].tempo_total_segundos || 1;
+  container.innerHTML = "";
+  data.forEach((linha, i) => {
+    const div = document.createElement("div");
+    div.className = "participante-linha";
+    const medalha = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`;
+    div.innerHTML = `
+      <span>${medalha} ${escaparHtml(linha.usuario_nome)}</span>
+      <span class="barra-fundo"><span class="barra" style="width:${Math.round((linha.tempo_total_segundos / maiorTempo) * 100)}%"></span></span>
+      <span class="tempo mono">${formatarDuracao(linha.tempo_total_segundos)}</span>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// ───── COMANDOS MAIS USADOS ─────
+async function buscarComandos() {
+  const container = document.getElementById("lista-comandos");
+  container.innerHTML = '<div class="estado-carregando">Carregando...</div>';
+
+  const { inicio, fim } = obterIntervaloData();
+  let query = sb.from("logs").select("detalhes")
+    .eq("categoria", "comandos")
+    .eq("tipo", "slash_command")
+    .order("criado_em", { ascending: false })
+    .limit(5000);
+
+  if (inicio) query = query.gte("criado_em", inicio);
+  if (fim) query = query.lte("criado_em", fim);
+
+  const { data, error } = await query;
+
+  if (error) {
+    container.innerHTML = `<div class="estado-vazio">Erro ao buscar comandos: ${error.message}</div>`;
+    return;
+  }
+  if (!data || data.length === 0) {
+    container.innerHTML = '<div class="estado-vazio">Nenhum comando usado nesse período.</div>';
+    return;
+  }
+
+  const contagem = {};
+  data.forEach(log => {
+    const cmd = (log.detalhes && log.detalhes.comando) || "?";
+    contagem[cmd] = (contagem[cmd] || 0) + 1;
+  });
+
+  const lista = Object.entries(contagem).sort((a, b) => b[1] - a[1]);
+  const maior = lista[0][1];
+
+  container.innerHTML = `<div class="resumo-call" style="margin-bottom:14px;">Total de comandos usados no período: <b>${data.length}</b></div>`;
+  lista.forEach(([cmd, qtd]) => {
+    const linha = document.createElement("div");
+    linha.className = "participante-linha";
+    linha.innerHTML = `
+      <span class="mono">/${escaparHtml(cmd)}</span>
+      <span class="barra-fundo"><span class="barra" style="width:${Math.round((qtd / maior) * 100)}%"></span></span>
+      <span class="tempo mono">${qtd}x</span>
+    `;
+    container.appendChild(linha);
+  });
+}
+
 async function buscarLogs(primeiraPagina) {
   const lista = document.getElementById("lista-logs");
   const botaoMais = document.getElementById("carregar-mais");
@@ -840,15 +923,14 @@ async function buscarLogs(primeiraPagina) {
   }
 
   const busca = document.getElementById("busca").value.trim();
-  const dataInicio = document.getElementById("data-inicio").value;
-  const dataFim = document.getElementById("data-fim").value;
+  const { inicio, fim } = obterIntervaloData();
 
   let query = sb.from("logs").select("*").order("criado_em", { ascending: false });
 
   if (categoriaAtual) query = query.eq("categoria", categoriaAtual);
   if (busca) query = query.or(`descricao.ilike.%${busca}%,usuario_nome.ilike.%${busca}%,canal_nome.ilike.%${busca}%`);
-  if (dataInicio) query = query.gte("criado_em", `${dataInicio}T00:00:00`);
-  if (dataFim) query = query.lte("criado_em", `${dataFim}T23:59:59`);
+  if (inicio) query = query.gte("criado_em", inicio);
+  if (fim) query = query.lte("criado_em", fim);
 
   const de = paginaAtual * PAGINA_TAMANHO;
   const ate = de + PAGINA_TAMANHO - 1;
@@ -976,11 +1058,10 @@ function escaparHtml(txt) {
 function iniciarRealtime() {
   sb.channel("logs-tempo-real")
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "logs" }, (payload) => {
-      if (modoRelatorio) {
+      if (modoAtual === "relatorio") {
         if (payload.new.tipo === "chamada_encerrada") {
           const semFiltro = !document.getElementById("busca").value &&
-                             !document.getElementById("data-inicio").value &&
-                             !document.getElementById("data-fim").value;
+                             document.getElementById("periodo").value === "all";
           if (semFiltro) {
             const container = document.getElementById("lista-relatorio");
             if (container.querySelector(".estado-vazio")) container.innerHTML = "";
@@ -989,9 +1070,11 @@ function iniciarRealtime() {
         }
         return;
       }
+      if (modoAtual === "comandos" || modoAtual === "ranking") return; // essas duas abas são recalculadas, não injetadas linha a linha
+      // só injeta na hora se estiver na aba "Tudo" (ou na aba certa) e sem filtro de busca/data ativo,
+      // pra não bagunçar uma busca que a pessoa esteja fazendo
       const semFiltro = !document.getElementById("busca").value &&
-                         !document.getElementById("data-inicio").value &&
-                         !document.getElementById("data-fim").value;
+                         document.getElementById("periodo").value === "all";
       const bateComAba = !categoriaAtual || categoriaAtual === payload.new.categoria;
       if (semFiltro && bateComAba) {
         const lista = document.getElementById("lista-logs");
@@ -1000,6 +1083,8 @@ function iniciarRealtime() {
       }
     })
     .subscribe((status, err) => {
+      // Reflete o status real da conexão no indicador do topo, além do console —
+      // assim dá pra ver o problema sem precisar abrir o DevTools.
       const bola = document.getElementById("bola-status");
       const texto = document.getElementById("texto-status");
       const wrapper = document.getElementById("indicador-live");
@@ -1018,6 +1103,14 @@ function iniciarRealtime() {
         texto.textContent = "conectando...";
       }
     });
+
+  // Ranking atualiza em tempo real também — como cada linha é um "upsert" (não um log
+  // solto), mais simples é só recarregar a lista quando algo mudar na tabela.
+  sb.channel("ranking-tempo-real")
+    .on("postgres_changes", { event: "*", schema: "public", table: "ranking" }, () => {
+      if (modoAtual === "ranking") buscarRanking();
+    })
+    .subscribe();
 }
 
 checarSessao();
