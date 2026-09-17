@@ -221,8 +221,16 @@
   }
   .indicador-live .bola{
     width:7px;height:7px;border-radius:50%;
+    background:#8a8a8a;
+    animation:pulsar 1.2s infinite;
+  }
+  .indicador-live .bola.ok{
     background:var(--good);
     animation:pulsar 2s infinite;
+  }
+  .indicador-live .bola.erro{
+    background:var(--danger);
+    animation:none;
   }
   @keyframes pulsar{
     0%,100%{opacity:1;}
@@ -468,7 +476,7 @@
       <h1>FrangoBot — Painel de Logs</h1>
     </div>
     <div style="display:flex;align-items:center;gap:16px;">
-      <div class="indicador-live"><span class="bola"></span> ao vivo</div>
+      <div class="indicador-live" id="indicador-live" title="Verificando conexão em tempo real..."><span class="bola" id="bola-status"></span> <span id="texto-status">conectando...</span></div>
       <button class="botao-sair" id="botao-sair">Sair</button>
     </div>
   </header>
@@ -790,6 +798,58 @@ async function buscarLogs(primeiraPagina) {
   botaoMais.style.display = fimDaLista ? "none" : "block";
 }
 
+// ───── Formatação legível dos "detalhes" (em vez de mostrar o JSON cru) ─────
+const ROTULOS_DETALHES = {
+  conteudo: "Conteúdo",
+  antes: "Antes",
+  depois: "Depois",
+  comando: "Comando",
+  opcoes: "Opções",
+  cargos: "Cargos",
+  adicionados: "Cargos adicionados",
+  removidos: "Cargos removidos",
+  configurado_por: "Configurado por",
+  removido_por: "Removido por",
+  usuario_id: "ID do usuário",
+  canal_anterior: "Canal anterior",
+  canal_novo: "Canal novo",
+  conta_criada_em: "Conta criada em",
+  canal_id: "ID do canal",
+  duracao_segundos: "Duração",
+  duracao_formatada: "Duração",
+  participantes: "Participantes",
+  recorde: "Ficou mais tempo",
+};
+
+function formatarValorDetalhe(valor) {
+  if (valor === null || valor === undefined || valor === "") return null;
+  if (Array.isArray(valor)) {
+    if (valor.length === 0) return null;
+    return valor.map(v => formatarValorDetalhe(v)).join(", ");
+  }
+  if (typeof valor === "object") {
+    if ("nome" in valor && "tempo_segundos" in valor) {
+      return `${valor.nome} (${formatarDuracao(valor.tempo_segundos)})`;
+    }
+    const partes = Object.entries(valor).map(([k, v]) => formatarValorDetalhe(v)).filter(Boolean);
+    return partes.length ? partes.join(", ") : null;
+  }
+  if (typeof valor === "boolean") return valor ? "sim" : "não";
+  return String(valor);
+}
+
+function formatarDetalhes(detalhes) {
+  const linhas = [];
+  for (const [chave, valor] of Object.entries(detalhes || {})) {
+    if (chave === "duracao_segundos" && detalhes.duracao_formatada) continue; // evita duplicar duração
+    const texto = formatarValorDetalhe(valor);
+    if (!texto) continue;
+    const rotulo = ROTULOS_DETALHES[chave] || chave.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase());
+    linhas.push(`${rotulo}: ${texto}`);
+  }
+  return linhas.length ? linhas.join("\n") : null;
+}
+
 function criarLinhaLog(log) {
   const div = document.createElement("div");
   div.className = "linha-log";
@@ -800,7 +860,7 @@ function criarLinhaLog(log) {
     hour: "2-digit", minute: "2-digit", second: "2-digit"
   });
 
-  const temDetalhes = log.detalhes && Object.keys(log.detalhes).length > 0;
+  const textoDetalhes = formatarDetalhes(log.detalhes);
 
   div.innerHTML = `
     <div class="horario mono">${horario}</div>
@@ -811,11 +871,11 @@ function criarLinhaLog(log) {
         <span class="etiqueta">${escaparHtml(log.tipo)}</span>
         ${log.canal_nome ? `<span class="etiqueta">#${escaparHtml(log.canal_nome)}</span>` : ""}
       </div>
-      ${temDetalhes ? `<button class="ver-mais">ver detalhes</button><div class="detalhes mono">${escaparHtml(JSON.stringify(log.detalhes, null, 2))}</div>` : ""}
+      ${textoDetalhes ? `<button class="ver-mais">ver detalhes</button><div class="detalhes mono">${escaparHtml(textoDetalhes)}</div>` : ""}
     </div>
   `;
 
-  if (temDetalhes) {
+  if (textoDetalhes) {
     const botao = div.querySelector(".ver-mais");
     const painelDetalhes = div.querySelector(".detalhes");
     botao.addEventListener("click", () => {
@@ -864,11 +924,25 @@ function iniciarRealtime() {
       }
     })
     .subscribe((status, err) => {
-      // Abra o Console do navegador (F12) — se aparecer "SUBSCRIBED", o tempo
-      // real está funcionando. Se aparecer "CHANNEL_ERROR" ou "TIMED_OUT", ainda
-      // falta rodar o "alter publication supabase_realtime add table public.logs;"
-      // no SQL Editor do Supabase (está no fim do supabase/schema.sql).
+      // Reflete o status real da conexão no indicador do topo, além do console —
+      // assim dá pra ver o problema sem precisar abrir o DevTools.
+      const bola = document.getElementById("bola-status");
+      const texto = document.getElementById("texto-status");
+      const wrapper = document.getElementById("indicador-live");
       console.log("[tempo real] status:", status, err || "");
+
+      if (status === "SUBSCRIBED") {
+        bola.className = "bola ok";
+        texto.textContent = "ao vivo";
+        wrapper.title = "Conectado — logs novos aparecem sozinhos, sem precisar recarregar.";
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+        bola.className = "bola erro";
+        texto.textContent = "sem tempo real (F5)";
+        wrapper.title = "Falta rodar no SQL Editor do Supabase:\nalter publication supabase_realtime add table public.logs;\n(está no fim do supabase/schema.sql)";
+      } else {
+        bola.className = "bola";
+        texto.textContent = "conectando...";
+      }
     });
 }
 
