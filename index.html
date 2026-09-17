@@ -2,12 +2,12 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>FrangoBot — Painel de Logs</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<title>???</title>
 <meta name="robots" content="noindex, nofollow" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
@@ -37,48 +37,78 @@
   ::selection{background:var(--accent);color:#1a1208;}
   .mono{font-family:'JetBrains Mono',monospace;}
 
-  /* ───── LOGIN ───── */
+  /* ───── DISFARCE / LOGIN (o que aparece ANTES de logar) ───── */
   #tela-login{
     min-height:100vh;
     display:flex;
     align-items:center;
     justify-content:center;
     padding:24px;
+    position:relative;
+    overflow:hidden;
+    background:#000;
+  }
+  #camada-interrogacoes{
+    position:absolute;
+    inset:0;
+    overflow:hidden;
+    pointer-events:none;
+    z-index:0;
+  }
+  #camada-interrogacoes span{
+    position:absolute;
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;
+    color:#2a2a2a;
+    user-select:none;
+  }
+  #palavra-secreta{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    font-family:'JetBrains Mono',monospace;
+    font-size:min(14vw, 7rem);
+    font-weight:700;
+    letter-spacing:.15em;
+    color:#161616;
+    z-index:0;
+    pointer-events:none;
+    white-space:nowrap;
   }
   .cartao-login{
+    position:relative;
+    z-index:1;
     width:100%;
-    max-width:380px;
-    background:var(--surface);
-    border:1px solid var(--line);
+    max-width:340px;
+    background:rgba(10,10,10,.88);
+    backdrop-filter:blur(6px);
+    border:1px solid #232323;
     border-radius:var(--radius);
-    padding:32px 28px;
+    padding:30px 26px;
   }
   .cartao-login .marca{
     display:flex;
     align-items:center;
+    justify-content:center;
     gap:10px;
-    margin-bottom:24px;
+    margin-bottom:20px;
   }
   .marca .ponto{
-    width:9px;height:9px;border-radius:50%;
-    background:var(--accent);
-    box-shadow:0 0 8px var(--accent);
+    width:6px;height:6px;border-radius:50%;
+    background:#3a3a3a;
   }
   .marca span{
     font-family:'JetBrains Mono',monospace;
-    letter-spacing:.02em;
-    color:var(--text-muted);
-    font-size:.85rem;
+    letter-spacing:.3em;
+    color:#4a4a4a;
+    font-size:.7rem;
   }
   .cartao-login h1{
-    font-size:1.4rem;
-    margin:0 0 6px;
-    font-weight:800;
+    display:none;
   }
   .cartao-login p.sub{
-    color:var(--text-muted);
-    font-size:.88rem;
-    margin:0 0 24px;
+    display:none;
   }
   label{
     display:block;
@@ -348,21 +378,36 @@
   #carregar-mais:hover{border-color:var(--accent);}
 
   @media(max-width:600px){
-    main{padding:18px 14px 60px;}
-    header.topo{padding:14px 16px;}
-    .linha-log{flex-direction:column;gap:4px;}
-    .linha-log .horario{min-width:auto;}
+    :root{ font-size:15px; }
+    main{padding:16px 12px 60px;}
+    header.topo{padding:12px 14px;gap:10px;}
+    header.topo h1{font-size:.92rem;}
+    .indicador-live span:not(.bola){display:none;}
+    .linha-log{flex-direction:column;gap:4px;padding:11px 12px;}
+    .linha-log .horario{min-width:auto;font-size:.7rem;}
+    .filtros{flex-direction:column;align-items:stretch;}
+    .filtros .campo{min-width:0;width:100%;}
+    #busca{min-width:0;}
+    .abas{gap:4px;}
+    .aba{padding:9px 12px;font-size:.8rem;flex:0 0 auto;}
+    .cartao-login{max-width:100%;padding:26px 20px;}
+    .resumo-call{gap:10px 16px;font-size:.78rem;}
+    .cabecalho-call{gap:6px;}
+    button{min-height:42px;}
+    input[type=email], input[type=password], input[type=text], input[type=date]{
+      font-size:1rem; /* evita zoom automático no iOS ao focar o campo */
+    }
   }
 </style>
 </head>
 <body>
 
-<!-- ═══════════════ TELA DE LOGIN ═══════════════ -->
+<!-- ═══════════════ TELA DE DISFARCE / LOGIN ═══════════════ -->
 <div id="tela-login">
+  <div id="camada-interrogacoes"></div>
+  <div id="palavra-secreta">SECRET</div>
   <div class="cartao-login">
-    <div class="marca"><span class="ponto"></span><span>FRANGOBOT / LOGS</span></div>
-    <h1>Entrar no painel</h1>
-    <p class="sub">Acesso restrito. Faça login com a conta cadastrada no Supabase Auth.</p>
+    <div class="marca"><span class="ponto"></span><span>• • •</span></div>
     <form id="form-login">
       <label for="campo-email">E-mail</label>
       <input type="email" id="campo-email" required autocomplete="username" />
@@ -447,6 +492,7 @@ const CORES_CATEGORIA = {
   voz: "#e3a23b",
   comandos: "#a9998a",
   moderacao_auto: "#d9614f",
+  servidor: "#9a7fd0",
 };
 
 const NOMES_CATEGORIA = {
@@ -455,7 +501,26 @@ const NOMES_CATEGORIA = {
   voz: "Voz",
   comandos: "Comandos",
   moderacao_auto: "Moderação Automática",
+  servidor: "Servidor",
 };
+
+// ───── DISFARCE: "?" espalhados pela tela de login ─────
+function gerarInterrogacoes() {
+  const camada = document.getElementById("camada-interrogacoes");
+  if (!camada || camada.childElementCount > 0) return;
+  const qtd = window.innerWidth < 600 ? 26 : 46;
+  for (let i = 0; i < qtd; i++) {
+    const span = document.createElement("span");
+    span.textContent = "?";
+    span.style.top = `${Math.random() * 100}%`;
+    span.style.left = `${Math.random() * 100}%`;
+    span.style.fontSize = `${0.8 + Math.random() * 2.6}rem`;
+    span.style.opacity = (0.08 + Math.random() * 0.22).toFixed(2);
+    span.style.transform = `rotate(${Math.round(Math.random() * 60 - 30)}deg)`;
+    camada.appendChild(span);
+  }
+}
+gerarInterrogacoes();
 
 // ───── LOGIN / SESSÃO ─────
 const telaLogin = document.getElementById("tela-login");
@@ -493,6 +558,7 @@ document.getElementById("botao-sair").addEventListener("click", async () => {
 });
 
 function mostrarPainel() {
+  document.title = "FrangoBot — Painel de Logs";
   telaLogin.style.display = "none";
   telaPainel.style.display = "block";
   resetarEBuscar();
