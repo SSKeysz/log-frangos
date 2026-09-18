@@ -264,7 +264,10 @@
     padding-bottom:4px;
     margin-bottom:18px;
     border-bottom:1px solid var(--line);
+    scrollbar-width:none;       /* Firefox */
+    -ms-overflow-style:none;    /* Edge/IE antigo */
   }
+  .abas::-webkit-scrollbar{ display:none; }  /* Chrome/Safari/Edge novo */
   .aba{
     background:transparent;
     color:var(--text-muted);
@@ -497,9 +500,9 @@
       <button class="aba" data-categoria="voz">Voz</button>
       <button class="aba" data-categoria="comandos">Comandos</button>
       <button class="aba" data-categoria="moderacao_auto">Moderação Automática</button>
-      <button class="aba" data-categoria="__relatorio__">📊 Relatório de Calls</button>
-      <button class="aba" data-categoria="__ranking__">🏆 Ranking</button>
-      <button class="aba" data-categoria="__comandos__">📈 Comandos Mais Usados</button>
+      <button class="aba" data-categoria="__relatorio__">Relatório de Calls</button>
+      <button class="aba" data-categoria="__ranking__">Ranking</button>
+      <button class="aba" data-categoria="__comandos__">Comandos Mais Usado</button>
     </div>
 
     <div class="filtros">
