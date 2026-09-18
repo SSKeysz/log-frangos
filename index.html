@@ -488,7 +488,6 @@
     </div>
     <div style="display:flex;align-items:center;gap:16px;">
       <div class="indicador-live" id="indicador-live" title="Verificando conexão em tempo real..."><span class="bola" id="bola-status"></span> <span id="texto-status">conectando...</span></div>
-      <button class="botao-secundario" id="botao-alternar-nome" title="Alternar entre nome normal e nome de exibição">Nome de exibição</button>
       <button class="botao-sair" id="botao-sair">Sair</button>
     </div>
   </header>
@@ -503,7 +502,7 @@
       <button class="aba" data-categoria="moderacao_auto">Moderação Automática</button>
       <button class="aba" data-categoria="__relatorio__">Relatório de Calls</button>
       <button class="aba" data-categoria="__ranking__">Ranking</button>
-      <button class="aba" data-categoria="__comandos__">Comandos Mais Usados</button>
+      <button class="aba" data-categoria="__comandos__">Comandos Mais Usado</button>
     </div>
 
     <div class="filtros">
@@ -561,30 +560,6 @@ const PAGINA_TAMANHO = 40;
 let categoriaAtual = "";
 let paginaAtual = 0;
 let fimDaLista = false;
-
-// ───── PREFERÊNCIA: nome normal x nome de exibição (igual um botão de trocar tema, só que pra nome) ─────
-let preferenciaNome = localStorage.getItem("preferenciaNome") || "apelido"; // "apelido" | "nome"
-
-function nomeExibir(nomeNormal, apelido) {
-  // se a preferência não tiver disponível pra esse registro (dado antigo, por exemplo), usa o que tiver
-  if (preferenciaNome === "nome") return nomeNormal || apelido || "?";
-  return apelido || nomeNormal || "?";
-}
-
-function atualizarBotaoNome() {
-  const btn = document.getElementById("botao-alternar-nome");
-  if (btn) btn.textContent = preferenciaNome === "apelido" ? "Nome de exibição" : "Nome normal";
-}
-
-document.getElementById("botao-alternar-nome").addEventListener("click", () => {
-  preferenciaNome = preferenciaNome === "apelido" ? "nome" : "apelido";
-  localStorage.setItem("preferenciaNome", preferenciaNome);
-  atualizarBotaoNome();
-  // re-renderiza a aba que já estiver aberta, pra atualizar na hora
-  if (modoAtual === "ranking") buscarRanking();
-  else if (modoAtual === "relatorio") buscarRelatorio();
-});
-atualizarBotaoNome();
 
 const CORES_CATEGORIA = {
   membros: "#6fa968",
@@ -846,12 +821,12 @@ function criarCartaoCall(log) {
     <div class="resumo-call">
       <span>Duração: <b>${escaparHtml(d.duracao_formatada || formatarDuracao(d.duracao_segundos || 0))}</b></span>
       <span>Participantes: <b>${participantes.length}</b></span>
-      ${recorde ? `<span class="recorde">👑 ${escaparHtml(nomeExibir(recorde.usuario, recorde.nome))} ficou mais tempo (${formatarDuracao(recorde.tempo_segundos)})</span>` : ""}
+      ${recorde ? `<span class="recorde">👑 ${escaparHtml(recorde.nome)} ficou mais tempo (${formatarDuracao(recorde.tempo_segundos)})</span>` : ""}
     </div>
     <div class="lista-participantes">
       ${participantes.map(p => `
         <div class="participante-linha">
-          <span>${escaparHtml(nomeExibir(p.usuario, p.nome))}</span>
+          <span>${escaparHtml(p.nome)}</span>
           <span class="barra-fundo"><span class="barra" style="width:${Math.round((p.tempo_segundos / maiorTempo) * 100)}%"></span></span>
           <span class="tempo mono">${formatarDuracao(p.tempo_segundos)}</span>
         </div>
@@ -894,7 +869,7 @@ async function buscarRanking() {
     div.className = "participante-linha";
     const medalha = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`;
     div.innerHTML = `
-      <span>${medalha} ${escaparHtml(nomeExibir(linha.usuario_nome, linha.usuario_apelido))}</span>
+      <span>${medalha} ${escaparHtml(linha.usuario_nome)}</span>
       <span class="barra-fundo"><span class="barra" style="width:${Math.round((linha.tempo_total_segundos / maiorTempo) * 100)}%"></span></span>
       <span class="tempo mono">${formatarDuracao(linha.tempo_total_segundos)}</span>
     `;
