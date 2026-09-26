@@ -354,6 +354,25 @@
     font-size:.74rem;padding:0;margin-top:6px;
     text-decoration:underline;cursor:pointer;
   }
+  .galeria-imagens{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:10px;
+  }
+  .galeria-imagens img{
+    width:120px;
+    height:120px;
+    object-fit:cover;
+    border-radius:8px;
+    border:1px solid var(--line);
+    cursor:zoom-in;
+    transition:transform .15s;
+  }
+  .galeria-imagens img:hover{
+    transform:scale(1.03);
+    border-color:var(--accent);
+  }
 
   .estado-vazio, .estado-carregando{
     text-align:center;
@@ -500,6 +519,7 @@
       <button class="aba" data-categoria="voz">Voz</button>
       <button class="aba" data-categoria="comandos">Comandos</button>
       <button class="aba" data-categoria="moderacao_auto">Moderação Automática</button>
+      <button class="aba" data-categoria="sistema">⚠️ Sistema</button>
       <button class="aba" data-categoria="__relatorio__">Relatório de Calls</button>
       <button class="aba" data-categoria="__ranking__">Ranking</button>
       <button class="aba" data-categoria="__comandos__">Comandos Mais Usado</button>
@@ -990,6 +1010,12 @@ const ROTULOS_DETALHES = {
   duracao_formatada: "Duração",
   participantes: "Participantes",
   recorde: "Ficou mais tempo",
+  convite_codigo: "Código do convite",
+  convidado_por: "Convidado por",
+  codigo: "Código do convite",
+  expira_em: "Expira em",
+  usos_maximos: "Usos máximos",
+  canal_origem: "Canal de origem",
 };
 
 function formatarValorDetalhe(valor) {
@@ -1013,6 +1039,7 @@ function formatarDetalhes(detalhes) {
   const linhas = [];
   for (const [chave, valor] of Object.entries(detalhes || {})) {
     if (chave === "duracao_segundos" && detalhes.duracao_formatada) continue; // evita duplicar duração
+    if (chave === "imagens") continue; // essas viram thumbnails de verdade, não texto
     const texto = formatarValorDetalhe(valor);
     if (!texto) continue;
     const rotulo = ROTULOS_DETALHES[chave] || chave.replace(/_/g, " ").replace(/^\w/, c => c.toUpperCase());
@@ -1032,6 +1059,12 @@ function criarLinhaLog(log) {
   });
 
   const textoDetalhes = formatarDetalhes(log.detalhes);
+  const imagens = (log.detalhes && log.detalhes.imagens) || [];
+  const galeriaHtml = imagens.length ? `
+    <div class="galeria-imagens">
+      ${imagens.map(url => `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" loading="lazy" alt="imagem apagada" /></a>`).join("")}
+    </div>
+  ` : "";
 
   div.innerHTML = `
     <div class="horario mono">${horario}</div>
@@ -1042,6 +1075,7 @@ function criarLinhaLog(log) {
         <span class="etiqueta">${escaparHtml(log.tipo)}</span>
         ${log.canal_nome ? `<span class="etiqueta">#${escaparHtml(log.canal_nome)}</span>` : ""}
       </div>
+      ${galeriaHtml}
       ${textoDetalhes ? `<button class="ver-mais">ver detalhes</button><div class="detalhes mono">${escaparHtml(textoDetalhes)}</div>` : ""}
     </div>
   `;
