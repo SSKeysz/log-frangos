@@ -266,6 +266,8 @@
     border-bottom:1px solid var(--line);
     scrollbar-width:none;       /* Firefox */
     -ms-overflow-style:none;    /* Edge/IE antigo */
+    cursor:grab;                /* indica que dá pra arrastar pros lados */
+    user-select:none;
   }
   .abas::-webkit-scrollbar{ display:none; }  /* Chrome/Safari/Edge novo */
   .aba{
@@ -519,7 +521,7 @@
       <button class="aba" data-categoria="voz">Voz</button>
       <button class="aba" data-categoria="comandos">Comandos</button>
       <button class="aba" data-categoria="moderacao_auto">Moderação Automática</button>
-      <button class="aba" data-categoria="sistema">⚠️ Sistema</button>
+      <button class="aba" data-categoria="sistema">Sistema</button>
       <button class="aba" data-categoria="__relatorio__">Relatório de Calls</button>
       <button class="aba" data-categoria="__ranking__">Ranking</button>
       <button class="aba" data-categoria="__comandos__">Comandos Mais Usado</button>
@@ -683,7 +685,10 @@ const MODOS_POR_CATEGORIA = {
   "__comandos__": "comandos",
 };
 
+let abasFoiArrastado = false;
+
 document.getElementById("abas").addEventListener("click", (e) => {
+  if (abasFoiArrastado) { abasFoiArrastado = false; return; } // era um arraste, não um clique de verdade
   const btn = e.target.closest(".aba");
   if (!btn) return;
   document.querySelectorAll(".aba").forEach(a => a.classList.remove("ativa"));
@@ -701,6 +706,42 @@ document.getElementById("abas").addEventListener("click", (e) => {
 
   resetarEBuscar();
 });
+
+// ───── Arrastar as abas com o mouse no PC (a barra de rolagem fica escondida de propósito) ─────
+(function habilitarArrastoDasAbas() {
+  const abas = document.getElementById("abas");
+  let arrastando = false;
+  let inicioX = 0;
+  let scrollInicial = 0;
+
+  abas.addEventListener("mousedown", (e) => {
+    arrastando = true;
+    abasFoiArrastado = false;
+    inicioX = e.pageX;
+    scrollInicial = abas.scrollLeft;
+    abas.style.cursor = "grabbing";
+  });
+  window.addEventListener("mouseup", () => {
+    arrastando = false;
+    abas.style.cursor = "";
+  });
+  abas.addEventListener("mouseleave", () => {
+    arrastando = false;
+    abas.style.cursor = "";
+  });
+  abas.addEventListener("mousemove", (e) => {
+    if (!arrastando) return;
+    const diferenca = e.pageX - inicioX;
+    if (Math.abs(diferenca) > 4) abasFoiArrastado = true; // passou de "clique" pra "arraste" de verdade
+    abas.scrollLeft = scrollInicial - diferenca;
+  });
+  // Deixa a roda do mouse rolar na horizontal também (sem precisar segurar Shift)
+  abas.addEventListener("wheel", (e) => {
+    if (e.deltaY === 0) return;
+    e.preventDefault();
+    abas.scrollLeft += e.deltaY;
+  }, { passive: false });
+})();
 
 // ───── FILTROS ─────
 let debounceBusca;
