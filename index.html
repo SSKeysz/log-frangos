@@ -257,6 +257,11 @@
     padding:24px 28px 80px;
   }
 
+  .abas-linha{
+    display:flex;
+    align-items:flex-start;
+    gap:8px;
+  }
   .abas{
     display:flex;
     gap:6px;
@@ -268,8 +273,60 @@
     -ms-overflow-style:none;    /* Edge/IE antigo */
     cursor:grab;                /* indica que dá pra arrastar pros lados */
     user-select:none;
+    flex:1;
+    min-width:0;
   }
   .abas::-webkit-scrollbar{ display:none; }  /* Chrome/Safari/Edge novo */
+  .config-abas-wrap{
+    position:relative;
+    flex-shrink:0;
+  }
+  .botao-config-abas{
+    background:var(--surface-2);
+    border:1px solid var(--line);
+    color:var(--text-muted);
+    border-radius:8px;
+    padding:8px 11px;
+    font-size:.95rem;
+    line-height:1;
+  }
+  .botao-config-abas:hover{border-color:var(--accent);color:var(--text);}
+  .painel-config-abas{
+    position:absolute;
+    top:calc(100% + 6px);
+    right:0;
+    z-index:20;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px;
+    width:240px;
+    max-height:320px;
+    overflow-y:auto;
+    box-shadow:0 12px 30px rgba(0,0,0,.5);
+  }
+  .painel-config-titulo{
+    margin:0 0 10px;
+    font-size:.78rem;
+    color:var(--text-muted);
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+  .linha-checkbox-aba{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    padding:6px 2px;
+    font-size:.85rem;
+    cursor:pointer;
+  }
+  .linha-checkbox-aba input{
+    width:auto;
+    margin:0;
+    accent-color:var(--accent);
+    cursor:pointer;
+  }
   .aba{
     background:transparent;
     color:var(--text-muted);
@@ -514,17 +571,28 @@
   </header>
 
   <main>
-    <div class="abas" id="abas">
-      <button class="aba ativa" data-categoria="">Tudo</button>
-      <button class="aba" data-categoria="membros">Membros</button>
-      <button class="aba" data-categoria="mensagens">Mensagens</button>
-      <button class="aba" data-categoria="voz">Voz</button>
-      <button class="aba" data-categoria="comandos">Comandos</button>
-      <button class="aba" data-categoria="moderacao_auto">Moderação Automática</button>
-      <button class="aba" data-categoria="sistema">Sistema</button>
-      <button class="aba" data-categoria="__relatorio__">Relatório de Calls</button>
-      <button class="aba" data-categoria="__ranking__">Ranking</button>
-      <button class="aba" data-categoria="__comandos__">Comandos Mais Usado</button>
+    <div class="abas-linha">
+      <div class="abas" id="abas">
+        <button class="aba ativa" data-categoria="">Tudo</button>
+        <button class="aba" data-categoria="membros">Membros</button>
+        <button class="aba" data-categoria="mensagens">Mensagens</button>
+        <button class="aba" data-categoria="voz">Voz</button>
+        <button class="aba" data-categoria="comandos">Comandos</button>
+        <button class="aba" data-categoria="moderacao_auto">Moderação Automática</button>
+        <button class="aba" data-categoria="servidor">🏛️ Servidor</button>
+        <button class="aba" data-categoria="cargos">🎭 Cargos</button>
+        <button class="aba" data-categoria="sistema">⚠️ Sistema</button>
+        <button class="aba" data-categoria="__relatorio__">Relatório de Calls</button>
+        <button class="aba" data-categoria="__ranking__">Ranking</button>
+        <button class="aba" data-categoria="__comandos__">Comandos Mais Usado</button>
+      </div>
+      <div class="config-abas-wrap">
+        <button id="botao-config-abas" class="botao-config-abas" title="Mostrar/ocultar abas">⚙️</button>
+        <div id="painel-config-abas" class="painel-config-abas" style="display:none;">
+          <p class="painel-config-titulo">Abas visíveis</p>
+          <div id="lista-checkboxes-abas"></div>
+        </div>
+      </div>
     </div>
 
     <div class="filtros">
@@ -590,6 +658,7 @@ const CORES_CATEGORIA = {
   comandos: "#a9998a",
   moderacao_auto: "#d9614f",
   servidor: "#9a7fd0",
+  cargos: "#c98fd6",
   sistema: "#e35b5b",
 };
 
@@ -600,6 +669,7 @@ const NOMES_CATEGORIA = {
   comandos: "Comandos",
   moderacao_auto: "Moderação Automática",
   servidor: "Servidor",
+  cargos: "Cargos",
   sistema: "Sistema (erro)",
 };
 
@@ -742,6 +812,63 @@ document.getElementById("abas").addEventListener("click", (e) => {
     abas.scrollLeft += e.deltaY;
   }, { passive: false });
 })();
+
+// ───── CONFIGURAR ABAS VISÍVEIS (salva no navegador, localStorage) ─────
+const CHAVE_ABAS_OCULTAS = "frangobot_abas_ocultas";
+let abasOcultas = new Set(JSON.parse(localStorage.getItem(CHAVE_ABAS_OCULTAS) || "[]"));
+
+function salvarAbasOcultas() {
+  localStorage.setItem(CHAVE_ABAS_OCULTAS, JSON.stringify([...abasOcultas]));
+}
+
+function aplicarVisibilidadeAbas() {
+  document.querySelectorAll("#abas .aba").forEach(btn => {
+    const cat = btn.dataset.categoria;
+    btn.style.display = abasOcultas.has(cat) ? "none" : "";
+  });
+}
+
+function montarPainelConfigAbas() {
+  const lista = document.getElementById("lista-checkboxes-abas");
+  lista.innerHTML = "";
+  document.querySelectorAll("#abas .aba").forEach(btn => {
+    const cat = btn.dataset.categoria;
+    if (cat === "") return; // "Tudo" fica sempre fixo, não dá pra ocultar essa
+    const label = document.createElement("label");
+    label.className = "linha-checkbox-aba";
+    label.innerHTML = `<input type="checkbox" ${abasOcultas.has(cat) ? "" : "checked"} /> ${btn.textContent}`;
+    label.querySelector("input").addEventListener("change", (e) => {
+      if (e.target.checked) {
+        abasOcultas.delete(cat);
+      } else {
+        abasOcultas.add(cat);
+        // se a aba escondida era a que estava aberta, volta pra "Tudo" pra não ficar numa tela invisível
+        if (categoriaAtual === cat || (modoAtual !== "logs" && `__${modoAtual}__` === cat)) {
+          document.querySelector('#abas .aba[data-categoria=""]').click();
+        }
+      }
+      salvarAbasOcultas();
+      aplicarVisibilidadeAbas();
+    });
+    lista.appendChild(label);
+  });
+}
+
+const botaoConfigAbas = document.getElementById("botao-config-abas");
+const painelConfigAbas = document.getElementById("painel-config-abas");
+botaoConfigAbas.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const abrindo = painelConfigAbas.style.display === "none";
+  if (abrindo) montarPainelConfigAbas();
+  painelConfigAbas.style.display = abrindo ? "block" : "none";
+});
+document.addEventListener("click", (e) => {
+  if (!painelConfigAbas.contains(e.target) && e.target !== botaoConfigAbas) {
+    painelConfigAbas.style.display = "none";
+  }
+});
+
+aplicarVisibilidadeAbas(); // aplica assim que a página carrega, com o que já tava salvo
 
 // ───── FILTROS ─────
 let debounceBusca;
